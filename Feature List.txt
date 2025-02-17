@@ -1,0 +1,12 @@
+List:
+MUST HAVE
+- Sequence of Keys moving in center
+- Tap the key to check if correct key is pressed and at the right time
+- Keys changing mid-way
+- Keys swapping with other key
+- In background the hand movements and button presses (NEED TO LOOK INTO ALL THE ACTIONS THAT NEED TO BE DONE)
+- Relevant SFX, VFX
+
+IF TIME PERMITS
+- Key holding feature along with key presses
+- Much better SFX, VFX
