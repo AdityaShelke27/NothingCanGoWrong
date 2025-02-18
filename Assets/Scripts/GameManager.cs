@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using static UnityEngine.InputSystem.LowLevel.InputStateHistory;
 public class GameManager : MonoBehaviour
 {
     [SerializeField] Transform m_SpawnPoint;
@@ -19,6 +20,12 @@ public class GameManager : MonoBehaviour
     [SerializeField] float m_SpeedIncreaseProportion;
     [SerializeField] float m_EndOffset = -1;
     [SerializeField] int m_MaxPoints = 10;
+    [SerializeField] float m_SwapMinThreshold;
+    [SerializeField] float m_SwapTime;
+    [SerializeField] AudioSource m_AudioSource;
+    [SerializeField] AudioClip[] m_SoundEffects;
+    [SerializeField] Material m_GlitchMaterial;
+    Queue<InputActionData> m_InputQueue = new();
     float m_GapDistance;
     int m_CurrentAction = -1;
     int m_Score;
@@ -51,11 +58,16 @@ public class GameManager : MonoBehaviour
     void Update()
     {
         CheckInput();
+
+        if(Input.GetKeyDown(KeyCode.S))
+        {
+            SwapInputs();
+        }
     }
 
-    IEnumerator MoveInput(GameObject inputAction, int key)
+    IEnumerator MoveInput(InputActionData data)
     {
-        inputAction.GetComponent<Image>().sprite = m_InputImg[key];
+        data.inputImg.sprite = m_InputImg[data.key];
 
         bool HasSwitched = false;
         bool isAction = false;
@@ -63,27 +75,35 @@ public class GameManager : MonoBehaviour
         float time = m_TimeToDie;
         while (time > 0)
         {
-            inputAction.transform.position += m_InputSpeed * Time.deltaTime * Vector3.left;
+            if(!data.isSwapping)
+            {
+                data.speed = m_InputSpeed;
+                data.inputAction.transform.position += data.speed * Time.deltaTime * Vector3.left;
+            }
+            
             time -= Time.deltaTime;
-            if(!HasSwitched && inputAction.transform.position.x < m_SwitchPoint.transform.position.x)
+            if(!HasSwitched && data.inputAction.transform.position.x < m_SwitchPoint.transform.position.x)
             {
                 if(Random.Range(0, 3) == 0)
                 {
-                    SwitchInput(inputAction, ref key);
+                    SwitchInput(data.inputAction, ref data.key);
+                    data.inputImg.material = m_GlitchMaterial;
+                    data.inputImg.material.SetTexture("_Texture", data.inputImg.mainTexture);
                 }
                 
                 HasSwitched = true;
             }
-            if(!isAction && inputAction.transform.position.x < m_StartPoint.transform.position.x)
+            if(!isAction && data.inputAction.transform.position.x < m_StartPoint.transform.position.x)
             {
                 isAction = true;
                 m_WasFalse = false;
-                m_CurrentAction = key;
-                m_CurrentActionImage = inputAction.GetComponent<Image>();
+                m_CurrentAction = data.key;
+                m_CurrentActionImage = data.inputImg;
+                m_InputQueue.Dequeue();
             }
-            else if(!isFalse && inputAction.transform.position.x < m_EndPoint.transform.position.x + m_EndOffset)
+            else if(!isFalse && data.inputAction.transform.position.x < m_EndPoint.transform.position.x + m_EndOffset)
             {
-                Image image = inputAction.GetComponent<Image>();
+                Image image = data.inputImg;
                 if(image.color == Color.white)
                 {
                     Debug.Log("Incorrect");
@@ -95,7 +115,7 @@ public class GameManager : MonoBehaviour
             yield return null;
         }
 
-        Destroy(inputAction);
+        Destroy(data.inputAction);
     }
 
     IEnumerator Spawner()
@@ -104,7 +124,9 @@ public class GameManager : MonoBehaviour
         {
             GameObject input = Instantiate(m_InputAction, m_SpawnPoint);
             input.transform.localPosition = Vector3.zero;
-            StartCoroutine(MoveInput(input, Random.Range(0, m_InputNum)));
+            InputActionData data = new(input, Random.Range(0, m_InputNum), m_InputSpeed);
+            m_InputQueue.Enqueue(data);
+            StartCoroutine(MoveInput(data));
 
             yield return new WaitForSeconds(m_InitialSpawnInterval);
             m_Time += m_InitialSpawnInterval;
@@ -126,6 +148,9 @@ public class GameManager : MonoBehaviour
                     m_CurrentActionImage.color = Color.green;
                     float start = Mathf.Abs(m_CurrentActionImage.transform.position.x - ((m_StartPoint.transform.position.x + m_EndPoint.transform.position.x) / 2));
                     m_Score += (int) (m_MaxPoints * (1 - (start / m_GapDistance)));
+
+                    m_AudioSource.clip = m_SoundEffects[Random.Range(0, m_SoundEffects.Length)];
+                    m_AudioSource.Play();
 
                     UpdateScore();
                 }
@@ -171,9 +196,90 @@ public class GameManager : MonoBehaviour
         key = Random.Range(0, m_InputNum);
         inputAction.GetComponent<Image>().sprite = m_InputImg[key];
     }
+    void SwapInputs()
+    {
+        InputActionData[] arr = m_InputQueue.ToArray();
+
+        InputActionData first = null;
+        InputActionData second = null;
+
+        for (int i = 0; i < arr.Length; i++)
+        {
+            if(arr[i].inputAction.transform.position.x - m_StartPoint.position.x >= m_SwapMinThreshold)
+            {
+                first = arr[i];
+
+                if(i < arr.Length - 1)
+                {
+                    second = arr[Random.Range(i + 1, arr.Length)];
+                }
+                
+                break;
+            }
+        }
+        
+        if (first != null && second != null)
+        {
+            StartCoroutine(Swap(first, second));
+        }
+    }
+
+    IEnumerator Swap(InputActionData obj1, InputActionData obj2)
+    {
+        obj1.inputImg.color = Color.yellow;
+        obj2.inputImg.color = Color.yellow;
+        obj1.isSwapping = true;
+        obj2.isSwapping = true;
+        float time = m_SwapTime;
+        float speed = obj1.speed;
+        float distance = Mathf.Abs(obj1.inputAction.transform.position.x - obj2.inputAction.transform.position.x);
+
+        if(obj1.inputAction.transform.position.x < obj2.inputAction.transform.position.x)
+        {
+            obj1.speed = speed - (distance / m_SwapTime);
+            obj2.speed = speed + (distance / m_SwapTime);
+        }
+        else
+        {
+            obj1.speed = speed + (distance / m_SwapTime);
+            obj2.speed = speed - (distance / m_SwapTime);
+        }
+        
+
+        while (time > 0)
+        {
+            obj1.inputAction.transform.position += obj1.speed * Time.deltaTime * Vector3.left;
+            obj2.inputAction.transform.position += obj2.speed * Time.deltaTime * Vector3.left;
+            time -= Time.deltaTime;
+
+            yield return null;
+        }
+        obj1.isSwapping = false;
+        obj2.isSwapping = false;
+
+        obj1.inputImg.color = Color.white;
+        obj2.inputImg.color = Color.white;
+    }
 
     void UpdateScore()
     {
         m_ScoreText.text = m_Score.ToString();
+    }
+}
+
+public class InputActionData
+{
+    public GameObject inputAction;
+    public int key;
+    public float speed;
+    public bool isSwapping = false;
+    public Image inputImg;
+
+    public InputActionData(GameObject _inputAction, int _key, float _speed)
+    {
+        inputAction = _inputAction;
+        key = _key;
+        speed = _speed;
+        inputImg = _inputAction.GetComponent<Image>();
     }
 }
