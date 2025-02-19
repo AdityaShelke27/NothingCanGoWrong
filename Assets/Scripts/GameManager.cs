@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using static UnityEngine.InputSystem.LowLevel.InputStateHistory;
 public class GameManager : MonoBehaviour
 {
     [SerializeField] Transform m_SpawnPoint;
@@ -25,15 +24,16 @@ public class GameManager : MonoBehaviour
     [SerializeField] AudioSource m_AudioSource;
     [SerializeField] AudioClip[] m_SoundEffects;
     [SerializeField] Material m_GlitchMaterial;
+    InputActionData m_CurrentAction;
     Queue<InputActionData> m_InputQueue = new();
+    HandAnimationManager m_HandAnimationManager;
     float m_GapDistance;
-    int m_CurrentAction = -1;
     int m_Score;
     float m_InputSpeed;
     float m_Time;
     int m_InputNum;
     bool m_WasFalse;
-    Image m_CurrentActionImage;
+
     Dictionary<int, KeyCode> m_KeyMaping = new() { 
         { 0, KeyCode.UpArrow }, 
         { 1, KeyCode.DownArrow }, 
@@ -45,8 +45,10 @@ public class GameManager : MonoBehaviour
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
+        m_CurrentAction = new(null, -1, 0);
         m_InputNum = m_KeyMaping.Count;
         m_InputSpeed = m_InitialInputSpeed;
+        m_HandAnimationManager = GetComponent<HandAnimationManager>();
 
         m_GapDistance = Mathf.Abs(m_StartPoint.transform.position.x - m_EndPoint.transform.position.x);
 
@@ -97,17 +99,15 @@ public class GameManager : MonoBehaviour
             {
                 isAction = true;
                 m_WasFalse = false;
-                m_CurrentAction = data.key;
-                m_CurrentActionImage = data.inputImg;
+                m_CurrentAction = data;
                 m_InputQueue.Dequeue();
             }
             else if(!isFalse && data.inputAction.transform.position.x < m_EndPoint.transform.position.x + m_EndOffset)
             {
-                Image image = data.inputImg;
-                if(image.color == Color.white)
+                if(!data.wasTapped)
                 {
-                    Debug.Log("Incorrect");
-                    image.color = Color.red;
+                    //Debug.Log("Incorrect");
+                    data.inputImg.color = Color.red;
                     m_WasFalse = true;
                     isFalse = true;
                 }
@@ -139,15 +139,19 @@ public class GameManager : MonoBehaviour
     {
         if (Input.anyKeyDown && !m_WasFalse)
         {
-            if (m_CurrentAction != -1)
+            if (m_CurrentAction.key != -1)
             {
-                if (Input.GetKeyDown(m_KeyMaping[m_CurrentAction]))
+                if (Input.GetKeyDown(m_KeyMaping[m_CurrentAction.key]))
                 {
-                    Debug.Log("Correct");
-                    m_CurrentAction = -1;
-                    m_CurrentActionImage.color = Color.green;
-                    float start = Mathf.Abs(m_CurrentActionImage.transform.position.x - ((m_StartPoint.transform.position.x + m_EndPoint.transform.position.x) / 2));
+                    //Debug.Log("Correct");
+
+                    m_CurrentAction.key = -1;
+                    m_CurrentAction.inputImg.color = Color.green;
+                    m_CurrentAction.wasTapped = true;
+
+                    float start = Mathf.Abs(m_CurrentAction.inputAction.transform.position.x - ((m_StartPoint.transform.position.x + m_EndPoint.transform.position.x) / 2));
                     m_Score += (int) (m_MaxPoints * (1 - (start / m_GapDistance)));
+                    m_HandAnimationManager.SetWorking();
 
                     m_AudioSource.clip = m_SoundEffects[Random.Range(0, m_SoundEffects.Length)];
                     m_AudioSource.Play();
@@ -156,14 +160,14 @@ public class GameManager : MonoBehaviour
                 }
                 else
                 {
-                    Debug.Log("Incorrect");
-                    m_CurrentActionImage.color = Color.red;
+                    //Debug.Log("Incorrect");
+                    m_CurrentAction.inputImg.color = Color.red;
                     m_WasFalse = true;
                 }
             }
             else
             {
-                Debug.Log("Incorrect");
+                //Debug.Log("Incorrect");
                 m_WasFalse = true;
             }
         }
@@ -245,7 +249,6 @@ public class GameManager : MonoBehaviour
             obj2.speed = speed - (distance / m_SwapTime);
         }
         
-
         while (time > 0)
         {
             obj1.inputAction.transform.position += obj1.speed * Time.deltaTime * Vector3.left;
@@ -269,17 +272,21 @@ public class GameManager : MonoBehaviour
 
 public class InputActionData
 {
-    public GameObject inputAction;
+    public GameObject inputAction = null;
     public int key;
     public float speed;
+    public bool wasTapped = false;
     public bool isSwapping = false;
-    public Image inputImg;
+    public Image inputImg = null;
 
     public InputActionData(GameObject _inputAction, int _key, float _speed)
     {
         inputAction = _inputAction;
         key = _key;
         speed = _speed;
-        inputImg = _inputAction.GetComponent<Image>();
+        if(_inputAction)
+        {
+            inputImg = _inputAction.GetComponent<Image>();
+        }
     }
 }

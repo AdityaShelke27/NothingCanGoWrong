@@ -773,6 +773,7 @@ GameObject:
   m_Component:
   - component: {fileID: 622988465}
   - component: {fileID: 622988466}
+  - component: {fileID: 622988467}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -836,6 +837,28 @@ MonoBehaviour:
   - {fileID: 8300000, guid: ba3bf897f722d3b458c176c97a2ded23, type: 3}
   - {fileID: 8300000, guid: e1c21654b4590244dadf419d2b9a5eb9, type: 3}
   m_GlitchMaterial: {fileID: 2100000, guid: b785b6fe2f0076c42937c1918f2dba5e, type: 2}
+--- !u!114 &622988467
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 622988464}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cd3b5182ddcd57d41a46fa57d2ac0706, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_HandAnimator: {fileID: 4347077573866235848}
+  m_AnimatonStates:
+  - Anim1
+  - Anim2
+  - Anim3
+  - Anim4
+  - Anim5
+  - Anim6
+  - Anim7
+  anim: 0
 --- !u!1 &860928985
 GameObject:
   m_ObjectHideFlags: 0
@@ -2824,7 +2847,7 @@ Transform:
   m_GameObject: {fileID: 6749760638557640928}
   serializedVersion: 2
   m_LocalRotation: {x: -0.020077996, y: 0.0004806802, z: -0.023941811, w: 0.9995116}
-  m_LocalPosition: {x: 0.43475413, y: 3.1576872, z: 3.5527137e-14}
+  m_LocalPosition: {x: 0.4347541, y: 3.1576872, z: 3.5527137e-14}
   m_LocalScale: {x: 0.99999994, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -7265,7 +7288,7 @@ Transform:
   m_GameObject: {fileID: 860709202941183619}
   serializedVersion: 2
   m_LocalRotation: {x: 0.000000010982182, y: -0.0000002348713, z: 0.046707317, w: 0.99890864}
-  m_LocalPosition: {x: -1.361467, y: 3.1462464, z: 7.1054274e-15}
+  m_LocalPosition: {x: -1.361467, y: 3.146246, z: 7.105427e-15}
   m_LocalScale: {x: 1, y: 0.99999994, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
