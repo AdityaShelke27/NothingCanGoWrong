@@ -1,38 +1,44 @@
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
 public class GameManager : MonoBehaviour
 {
-    [SerializeField] Transform m_SpawnPoint;
-    [SerializeField] Transform m_StartPoint;
-    [SerializeField] Transform m_EndPoint;
-    [SerializeField] Transform m_SwitchPoint;
-    [SerializeField] GameObject m_InputAction;
-    [SerializeField] float m_InitialSpawnInterval;
-    [SerializeField] float m_InitialInputSpeed;
-    [SerializeField] float m_TimeToDie;
-    [SerializeField] TMP_Text m_ScoreText;
-    [SerializeField] Sprite[] m_InputImg;
-    [SerializeField] int m_DifficultyIncreaseTime;
-    [SerializeField] float m_SpeedIncreaseProportion;
-    [SerializeField] float m_EndOffset = -1;
-    [SerializeField] int m_MaxPoints = 10;
-    [SerializeField] float m_SwapMinThreshold;
-    [SerializeField] float m_SwapTime;
-    [SerializeField] AudioSource m_AudioSource;
-    [SerializeField] AudioClip[] m_SoundEffects;
-    [SerializeField] Material m_GlitchMaterial;
-    InputActionData m_CurrentAction;
-    Queue<InputActionData> m_InputQueue = new();
-    HandAnimationManager m_HandAnimationManager;
     float m_GapDistance;
     int m_Score;
     float m_InputSpeed;
     float m_Time;
     int m_InputNum;
     bool m_WasFalse;
+    InputActionData m_CurrentAction;
+    Queue<InputActionData> m_InputQueue = new();
+    HandAnimationManager m_HandAnimationManager;
+
+    [SerializeField] float m_SpawnRate;
+    [SerializeField] float m_InitialInputSpeed;
+    [SerializeField] int m_DifficultyIncreaseTime;
+    [SerializeField] float m_SpeedIncreaseProportion;
+    [SerializeField] float m_EndOffset = -1;
+    [SerializeField] int m_MaxPoints = 10;
+    [SerializeField] float m_SwapMinThreshold;
+    [SerializeField] float m_SwapTime;
+    [SerializeField] float m_SwapStartTime;
+    [SerializeField] float m_SwapThresholdIncreaseRate;
+    
+    [Header("References")]
+    [SerializeField] AudioSource m_AudioSource;
+    [SerializeField] AudioClip[] m_SoundEffects;
+    [SerializeField] Material m_GlitchMaterial;
+    [SerializeField] TMP_Text m_ScoreText;
+    [SerializeField] Sprite[] m_InputImg;
+    [SerializeField] Transform m_SpawnPoint;
+    [SerializeField] Transform m_StartPoint;
+    [SerializeField] Transform m_EndPoint;
+    [SerializeField] Transform m_SwitchPoint;
+    [SerializeField] GameObject m_InputAction;
+    [SerializeField] GameObject m_CurrentActionHolder;
 
     Dictionary<int, KeyCode> m_KeyMaping = new() { 
         { 0, KeyCode.UpArrow }, 
@@ -74,8 +80,7 @@ public class GameManager : MonoBehaviour
         bool HasSwitched = false;
         bool isAction = false;
         bool isFalse = false;
-        float time = m_TimeToDie;
-        while (time > 0)
+        while (data.inputImg.color.a > 0)
         {
             if(!data.isSwapping)
             {
@@ -83,13 +88,12 @@ public class GameManager : MonoBehaviour
                 data.inputAction.transform.position += data.speed * Time.deltaTime * Vector3.left;
             }
             
-            time -= Time.deltaTime;
             if(!HasSwitched && data.inputAction.transform.position.x < m_SwitchPoint.transform.position.x)
             {
                 if(Random.Range(0, 3) == 0)
                 {
-                    SwitchInput(data.inputAction, ref data.key);
-                    data.inputImg.material = m_GlitchMaterial;
+                    SwitchInput(data);
+                    data.inputImg.material = Instantiate(m_GlitchMaterial);
                     data.inputImg.material.SetTexture("_Texture", data.inputImg.mainTexture);
                 }
                 
@@ -102,15 +106,18 @@ public class GameManager : MonoBehaviour
                 m_CurrentAction = data;
                 m_InputQueue.Dequeue();
             }
-            else if(!isFalse && data.inputAction.transform.position.x < m_EndPoint.transform.position.x + m_EndOffset)
+            else if(data.inputAction.transform.position.x < m_EndPoint.transform.position.x + m_EndOffset)
             {
-                if(!data.wasTapped)
+                if(!isFalse && !data.wasTapped)
                 {
-                    //Debug.Log("Incorrect");
+                    Debug.Log("Incorrect");
                     data.inputImg.color = Color.red;
                     m_WasFalse = true;
                     isFalse = true;
                 }
+                Color dataColor = data.inputImg.color;
+                dataColor.a -= 1 * Time.deltaTime;
+                data.inputImg.color = dataColor;
             }
             yield return null;
         }
@@ -128,8 +135,9 @@ public class GameManager : MonoBehaviour
             m_InputQueue.Enqueue(data);
             StartCoroutine(MoveInput(data));
 
-            yield return new WaitForSeconds(m_InitialSpawnInterval);
-            m_Time += m_InitialSpawnInterval;
+            float timeInterval = m_SpawnRate / m_InputSpeed;
+            yield return new WaitForSeconds(timeInterval);
+            m_Time += timeInterval;
 
             IncreaseDifficulty();
         }
@@ -143,7 +151,7 @@ public class GameManager : MonoBehaviour
             {
                 if (Input.GetKeyDown(m_KeyMaping[m_CurrentAction.key]))
                 {
-                    //Debug.Log("Correct");
+                    Debug.Log("Correct");
 
                     m_CurrentAction.key = -1;
                     m_CurrentAction.inputImg.color = Color.green;
@@ -160,14 +168,14 @@ public class GameManager : MonoBehaviour
                 }
                 else
                 {
-                    //Debug.Log("Incorrect");
+                    Debug.Log("Incorrect");
                     m_CurrentAction.inputImg.color = Color.red;
                     m_WasFalse = true;
                 }
             }
             else
             {
-                //Debug.Log("Incorrect");
+                Debug.Log("Incorrect");
                 m_WasFalse = true;
             }
         }
@@ -175,11 +183,31 @@ public class GameManager : MonoBehaviour
 
     void IncreaseDifficulty()
     {
+        if(m_InputSpeed > m_InitialInputSpeed * 2)
+        {
+            Vector3 pos = m_CurrentActionHolder.transform.position;
+            pos.x -= 2;
+            m_CurrentActionHolder.transform.position = pos;
+        }
         float m_TargetSpeed = m_InitialInputSpeed * Mathf.Pow(1 + m_SpeedIncreaseProportion, (int)m_Time / m_DifficultyIncreaseTime);
 
         if(m_TargetSpeed > m_InputSpeed)
         {
             StartCoroutine(LerpToTargetSpeed(m_TargetSpeed));
+            m_SwapMinThreshold += m_SwapThresholdIncreaseRate;
+        }
+
+        if(m_Time >= m_SwapStartTime)
+        {
+            if(Random.Range(0, 5) == 0)
+            {
+                SwapInputs();
+            }
+        }
+
+        if(Random.Range(0, 10) == 0)
+        {
+            m_SpawnRate++;
         }
     }
 
@@ -195,10 +223,10 @@ public class GameManager : MonoBehaviour
         m_InputSpeed = speed;
     }
 
-    void SwitchInput(GameObject inputAction, ref int key)
+    void SwitchInput(InputActionData data)
     {
-        key = Random.Range(0, m_InputNum);
-        inputAction.GetComponent<Image>().sprite = m_InputImg[key];
+        data.key = Random.Range(0, m_InputNum);
+        data.inputImg.sprite = m_InputImg[data.key];
     }
     void SwapInputs()
     {
@@ -227,7 +255,14 @@ public class GameManager : MonoBehaviour
             StartCoroutine(Swap(first, second));
         }
     }
+    void OnDrawGizmos()
+    {
+        Gizmos.color = Color.red;
+        Gizmos.DrawSphere(m_StartPoint.position, 10);
 
+        Gizmos.color = Color.green;
+        Gizmos.DrawSphere(m_StartPoint.position + new Vector3(m_SwapMinThreshold, 0, 0), 10);
+    }
     IEnumerator Swap(InputActionData obj1, InputActionData obj2)
     {
         obj1.inputImg.color = Color.yellow;
