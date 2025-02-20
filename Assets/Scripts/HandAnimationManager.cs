@@ -26,7 +26,8 @@ public class HandAnimationManager : MonoBehaviour
             yield return new WaitUntil(() => m_IsWorking);
             
             m_HandAnimator.Play(m_AnimatonStates[Random.Range(0, m_AnimatonStates.Length)]);
-            yield return new WaitUntil(() => m_IsAnimationComplete || m_HandAnimator.GetCurrentAnimatorStateInfo(0).normalizedTime >= 2);
+            float time = m_HandAnimator.GetCurrentAnimatorStateInfo(0).length;
+            yield return new WaitUntil(() => m_IsAnimationComplete || m_HandAnimator.GetCurrentAnimatorStateInfo(0).normalizedTime >= time);
             m_IsAnimationComplete = false;
             m_IsWorking = false;
         }
