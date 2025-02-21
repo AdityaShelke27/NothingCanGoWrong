@@ -205,11 +205,18 @@ public class GameManager : MonoBehaviour
     }
     void IncreaseDifficulty()
     {
-        if(m_InputSpeed > m_InitialInputSpeed * 2)
+        if(m_InputSpeed > m_InitialInputSpeed * 1.5f)
         {
             Vector3 pos = m_CurrentActionHolder.transform.position;
             pos.x -= 2;
             m_CurrentActionHolder.transform.position = pos;
+
+            if(Random.Range(0, 2) == 0)
+            {
+                Vector3 switchPos = m_SwitchPoint.position;
+                switchPos.x += 1;
+                m_SwitchPoint.position = switchPos;
+            }
         }
         if(!m_IsSpeedAtMax)
         {
@@ -234,9 +241,9 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        if(Random.Range(0, 10) == 0)
+        if(Random.Range(0, 5) == 0)
         {
-            m_SpawnRate++;
+            m_SpawnRate += 2;
         }
     }
 
@@ -295,6 +302,9 @@ public class GameManager : MonoBehaviour
 
         Gizmos.color = Color.green;
         Gizmos.DrawSphere(m_StartPoint.position + new Vector3(m_SwapMinThreshold, 0, 0), 10);
+
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawSphere(m_SwitchPoint.position, 10);
     }
     IEnumerator Swap(InputActionData obj1, InputActionData obj2)
     {
