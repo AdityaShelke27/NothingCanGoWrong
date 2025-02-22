@@ -7,6 +7,7 @@ public class Shake
     public float Duration;
     public float Strength;
     public Vector3 Direction;
+
     public Shake(float duration, float strength, Vector3 direction)
     {
         this.DurationInit = duration;

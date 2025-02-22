@@ -12,6 +12,7 @@ public class GameManager : MonoBehaviour
     int m_InputNum;
     bool m_WasFalse;
     bool m_IsSpeedAtMax = false;
+    bool m_IsFirst = false;
     InputActionData m_CurrentAction;
     Queue<InputActionData> m_InputQueue = new();
     HandAnimationManager m_HandAnimationManager;
@@ -71,7 +72,7 @@ public class GameManager : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        CheckInput();
+        CheckInput(); 
     }
 
     IEnumerator MoveInput(InputActionData data)
@@ -105,6 +106,12 @@ public class GameManager : MonoBehaviour
                 m_WasFalse = false;
                 m_CurrentAction = data;
                 m_InputQueue.Dequeue();
+
+                if(!m_IsFirst)
+                {
+                    DoTransition();
+                    m_IsFirst = true;
+                }
             }
             else if(data.inputAction.transform.position.x < m_EndPoint.transform.position.x + m_EndOffset)
             {
@@ -122,7 +129,10 @@ public class GameManager : MonoBehaviour
 
         Destroy(data.inputAction);
     }
-
+    void DoTransition()
+    {
+        Camera.main.GetComponent<Animator>().Play("CameraTransition");
+    }
     IEnumerator Spawner()
     {
         while (true)
@@ -205,19 +215,23 @@ public class GameManager : MonoBehaviour
     }
     void IncreaseDifficulty()
     {
-        if(m_InputSpeed > m_InitialInputSpeed * 1.5f)
+        if(m_CurrentActionHolder.transform.position.x > Screen.width * 0.1f)
         {
-            Vector3 pos = m_CurrentActionHolder.transform.position;
-            pos.x -= 2;
-            m_CurrentActionHolder.transform.position = pos;
-
-            if(Random.Range(0, 2) == 0)
+            if (m_InputSpeed > m_InitialInputSpeed * 1.5f)
             {
-                Vector3 switchPos = m_SwitchPoint.position;
-                switchPos.x += 1;
-                m_SwitchPoint.position = switchPos;
+                Vector3 pos = m_CurrentActionHolder.transform.position;
+                pos.x -= 2;
+                m_CurrentActionHolder.transform.position = pos;
+
+                if (Random.Range(0, 2) == 0)
+                {
+                    Vector3 switchPos = m_SwitchPoint.position;
+                    switchPos.x += 1;
+                    m_SwitchPoint.position = switchPos;
+                }
             }
         }
+        
         if(!m_IsSpeedAtMax)
         {
             float m_TargetSpeed = m_InitialInputSpeed * Mathf.Pow(1 + m_SpeedIncreaseProportion, (int)m_Time / m_DifficultyIncreaseTime);
